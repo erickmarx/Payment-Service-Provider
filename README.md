@@ -1,75 +1,62 @@
-https://github.com/pagarme/vagas/blob/master/desafios/software-engineer-backend/README.md
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# Desafio Software Engineer, Back-end - Pagar.me
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Nesse desafio você construirá uma versão super simplificada de um Payment Service Provider (PSP) como o Pagar.me e talvez aprender um pouco mais sobre como funcionam pagamentos no Brasil.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Contexto
 
-## Description
+Em sua essência um PSP tem duas funções muito importantes:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+1. Permitir que nossos clientes processem transações ("cash-in")
+2. Efetuar os pagamentos dos recebíveis para os nossos clientes ("cash-out")
 
-## Installation
+No Pagar.me, nós temos duas entidades que representam essas informações:
 
-```bash
-$ pnpm install
-```
+* `transactions`: que representam as informações da compra, dados do cartão, valor, etc
+* `payables`: que representam os recebíveis que pagaremos ao cliente
 
-## Running the app
+> Nota: quando um cliente passa uma transação de crédito, ele normalmente recebe o valor em média apenas 30 dias depois (o que chamamos de D+30), porque é assim que a cadeia financeira (bancos, bandeiras, adquirentes) funciona. Porém é possível receber esse valor antes dos 30 dias através de um mecanismo chamado "antecipação". Se tiver curiosidade, a gente tem artigo que explica sobre isso, mas isso não é necessário para realizar esse desafio: https://pagarme.zendesk.com/hc/pt-br/articles/217029766-O-que-%C3%A9-antecipa%C3%A7%C3%A3o-
 
-```bash
-# development
-$ pnpm run start
+## Requisitos
 
-# watch mode
-$ pnpm run start:dev
+Você deve criar um serviço com os seguintes requisitos:
 
-# production mode
-$ pnpm run start:prod
-```
+1. O serviço deve processar transações, recebendo as seguintes informações:
+    * Valor da transação
+    * Descrição da transação. Ex: `'Smartband XYZ 3.0'`
+    * Método de pagamento (`debit_card` ou `credit_card`)
+    * Número do cartão
+    * Nome do portador do cartão
+    * Data de validade do cartão
+    * Código de verificação do cartão (CVV)
+2. O serviço deve retornar uma lista das transações já criadas
+3. Como o número do cartão é uma informação sensível, o serviço só pode armazenar e retornar os 4 últimos dígitos do cartão.
+4. O serviço deve criar os recebíveis do cliente (`payables`), com as seguintes regras:
+    * Se a transação for feita com um cartão de débito:
+        * O payable deve ser criado com status = `paid` (indicando que o cliente já recebeu esse valor)
+        * O payable deve ser criado com a data de pagamento (payment_date) = data da criação da transação (D+0).
+    * Se a transação for feita com um cartão de crédito:
+        * O payable deve ser criado com status = `waiting_funds` (indicando que o cliente vai receber esse dinheiro no futuro)
+        * O payable deve ser criado com a data de pagamento (payment_date) = data da criação da transação + 30 dias (D+30).
+5. No momento de criação dos payables também deve ser descontado a taxa de processamento (que chamamos de `fee`) do cliente. Ex: se a taxa for 5% e o cliente processar uma transação de R$100,00, ele só receberá R$95,00. Considere as seguintes taxas:
+    * 3% para transações feitas com um cartão de débito
+    * 5% para transações feitas com um cartão de crédito
+6. O serviço deve prover um meio de consulta para que o cliente visualize seu saldo com as seguintes informações:
+    * Saldo `available` (disponível): tudo que o cliente já recebeu (payables `paid`)
+    * Saldo `waiting_funds` (a receber): tudo que o cliente tem a receber (payables `waiting_funds`)
 
-## Test
+> Nota: neste desafio, você não precisa se preocupar com parcelamento.
 
-```bash
-# unit tests
-$ pnpm run test
+## Restrições
 
-# e2e tests
-$ pnpm run test:e2e
+1. O serviço deve ser escrito em Node.js
+2. O serviço deve armazenar informações em um banco de dados. Você pode escolher o banco que achar melhor. Aqui no Pagar.me usamos amplamente PostgreSQL
+3. O projeto deve ter um README.md com todas as instruções sobre como executar e testar o projeto e os serviços disponibilizados.
+4. O projeto deve conter testes automatizados.
 
-# test coverage
-$ pnpm run test:cov
-```
+## Avaliação
 
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](LICENSE).
-# Payment-Service-Provider
+1. O desafio deve ser enviado para a pessoa do RH que estiver em contato com você, no formato de `.zip` ou um link para um repositório do Github
+2. Iremos te avaliar pela arquitetura do serviço, qualidade do código, entendimento das regras de negócio, capricho com o desafio e o quão preparado esse serviço estaria para ser rodado em produção
+3. Depois que corrigirmos o desafio, te chamaremos para conversar com o time, apresentar o desafio e discutir sobre as decisões que você tomou
+4. Achamos que **1 semana** é um tempo ok para fazer o desafio, mas sabemos que nem todo mundo tem o mesmo nível de disponibilidade. Portanto, nos avise se precisar de mais tempo, ok?
+5. Boa sorte :)
