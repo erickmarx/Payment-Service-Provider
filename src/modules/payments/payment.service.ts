@@ -12,11 +12,7 @@ export class PaymentService {
   ) {}
 
   public async process(payment: IProcessPayment): Promise<void> {
-    const paymentMethodService = this.paymentBuilder.build(
-      payment.paymentMethod,
-    );
-
-    await paymentMethodService.process(payment);
+    await this.paymentBuilder.build(payment.paymentMethod).process(payment);
   }
 
   public async check(): Promise<ICheckPayment> {

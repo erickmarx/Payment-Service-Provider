@@ -10,12 +10,8 @@ export class PaymentBuilder {
   ) {}
 
   public build(paymentMethod: string): CreditService | DebitService {
-    if (paymentMethod === 'credit_card') {
-      return this.creditService;
-    }
-
-    if (paymentMethod === 'debit_card') {
-      return this.debitService;
-    }
+    return { credit_card: this.creditService, debit_card: this.debitService }[
+      paymentMethod
+    ];
   }
 }
